@@ -188,13 +188,13 @@
         }
 
         .button-group {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 10px;
             margin-top: 20px;
         }
 
         .btn {
-            flex: 1;
             padding: 12px 20px;
             border: none;
             border-radius: 8px;
@@ -207,6 +207,7 @@
         .btn-primary {
             background: #3498db;
             color: white;
+            grid-column: 1 / -1; /* Span full width */
         }
 
         .btn-primary:hover {
@@ -221,6 +222,16 @@
 
         .btn-secondary:hover {
             background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
             transform: translateY(-2px);
         }
 
@@ -381,6 +392,7 @@
                         <div class="button-group">
                             <button type="submit" class="btn btn-primary">💾 保存记录</button>
                             <button type="button" class="btn btn-secondary" id="noChangeBtn">📝 今天没变化</button>
+                            <button type="button" class="btn btn-danger" id="deleteBtn">🗑️ 删除记录</button>
                         </div>
                     </form>
                     <div id="statusMessage"></div>
@@ -624,10 +636,46 @@
                     this.saveNoChangeRecord();
                 });
 
+                document.getElementById('deleteBtn').addEventListener('click', () => {
+                    this.deleteFundsRecord();
+                });
+
                 document.getElementById('selectedDate').addEventListener('change', (e) => {
                     const selectedDate = new Date(e.target.value + 'T12:00:00');
                     this.loadRecordForDate(selectedDate);
                 });
+            }
+
+            async deleteFundsRecord() {
+                const dateStr = document.getElementById('selectedDate').value;
+                if (!dateStr) {
+                    this.showMessage('请先选择要删除的日期', 'error');
+                    return;
+                }
+
+                if (confirm(`您确定要删除 ${dateStr} 的记录吗？`)) {
+                    try {
+                        const response = await fetch(`${API_BASE}/api/funds`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ date: dateStr })
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok && result.success) {
+                            this.showMessage('记录已删除', 'success');
+                            this.loadFundsData(); // Refresh data
+                            document.getElementById('cashAmount').value = '';
+                            document.getElementById('marketAmount').value = '';
+                        } else {
+                            throw new Error(result.error || '删除失败');
+                        }
+                    } catch (error) {
+                        console.error('删除记录时出错:', error);
+                        this.showMessage(`删除失败: ${error.message}`, 'error');
+                    }
+                }
             }
 
             async saveFundsRecord() {
@@ -640,7 +688,14 @@
                     return;
                 }
 
-                const selectedDate = new Date(dateStr + 'T12:00:00');
+                const selectedDate = new Date(dateStr + 'T00:00:00');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (selectedDate > today) {
+                    this.showMessage('不能为未来日期记录资金', 'error');
+                    return;
+                }
+
                 if (!this.isTradingDay(selectedDate)) {
                     this.showMessage('只能在交易日记录资金变化', 'error');
                     return;
@@ -682,7 +737,14 @@
                     return;
                 }
 
-                const selectedDate = new Date(dateStr + 'T12:00:00');
+                const selectedDate = new Date(dateStr + 'T00:00:00');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (selectedDate > today) {
+                    this.showMessage('不能为未来日期记录资金', 'error');
+                    return;
+                }
+
                 if (!this.isTradingDay(selectedDate)) {
                     this.showMessage('休市日无需记录', 'error');
                     return;
@@ -717,6 +779,8 @@
                         if (this.fundsData.length > 0) {
                             const latest = this.fundsData[this.fundsData.length - 1];
                             this.updateTotalDisplay(latest.totalFunds);
+                        } else {
+                            this.updateTotalDisplay(0);
                         }
                     }
                 } catch (error) {
@@ -820,9 +884,18 @@
             }
 
             updateChart() {
-                if (!this.chart || this.fundsData.length === 0) return;
+                if (!this.chart) return;
 
-                const sortedData = [...this.fundsData].sort((a, b) => new Date(a.date) - new Date(b.date));
+                const yearlyData = this.fundsData.filter(r => new Date(r.date).getFullYear() === this.displayYear);
+
+                if (yearlyData.length === 0) {
+                    this.chart.data.labels = [];
+                    this.chart.data.datasets.forEach(dataset => dataset.data = []);
+                    this.chart.update();
+                    return;
+                }
+
+                const sortedData = [...yearlyData].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const labels = sortedData.map(record => new Date(record.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
 
                 this.chart.data.labels = labels;
