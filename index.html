@@ -115,12 +115,12 @@
         }
 
         .day.trading-day {
-            background: #27ae60;
-            color: white;
+            background: #A5D6A7; /* Light Green */
+            color: #333;
         }
 
         .day.non-trading-day {
-            background: #e74c3c;
+            background: #bdc3c7; /* Gray */
             color: white;
         }
 
@@ -131,13 +131,8 @@
             box-shadow: 0 0 20px rgba(243, 156, 18, 0.5);
         }
 
-        .day.has-record::after {
-            content: '●';
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            color: #fff;
-            font-size: 0.6rem;
+        .day.has-record {
+            font-weight: 900;
         }
 
         .day.other-month {
@@ -346,11 +341,11 @@
                 </div>
                 <div class="legend">
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #27ae60;"></div>
+                        <div class="legend-color" style="background: #A5D6A7;"></div>
                         <span>交易日</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #e74c3c;"></div>
+                        <div class="legend-color" style="background: #bdc3c7;"></div>
                         <span>休市日</span>
                     </div>
                     <div class="legend-item">
@@ -412,15 +407,13 @@
                 this.currentDate = new Date();
                 this.selectedDate = new Date();
                 this.currentYear = this.currentDate.getFullYear();
-                this.displayYear = this.currentYear; // Currently displayed year
+                this.displayYear = this.currentYear;
                 this.fundsData = [];
                 this.chart = null;
                 this.holidays = [];
-                
                 this.init();
             }
 
-            // Calculate Easter Sunday for any year using the algorithm
             calculateEaster(year) {
                 const a = year % 19;
                 const b = Math.floor(year / 100);
@@ -439,72 +432,47 @@
                 return new Date(year, month - 1, day);
             }
 
-            // Get the nth weekday of a month (e.g., 3rd Monday of January)
             getNthWeekdayOfMonth(year, month, weekday, n) {
                 const firstDay = new Date(year, month, 1);
                 const firstWeekday = firstDay.getDay();
                 const daysToAdd = (weekday - firstWeekday + 7) % 7;
-                const date = new Date(year, month, 1 + daysToAdd + (n - 1) * 7);
-                return date;
+                return new Date(year, month, 1 + daysToAdd + (n - 1) * 7);
             }
 
-            // Get the last weekday of a month
             getLastWeekdayOfMonth(year, month, weekday) {
                 const lastDay = new Date(year, month + 1, 0);
                 const lastWeekday = lastDay.getDay();
                 const daysToSubtract = (lastWeekday - weekday + 7) % 7;
-                const date = new Date(year, month + 1, 0 - daysToSubtract);
-                return date;
+                return new Date(year, month + 1, 0 - daysToSubtract);
             }
 
-            // Adjust holiday if it falls on weekend
             adjustHolidayForWeekend(date) {
                 const day = date.getDay();
-                if (day === 0) { // Sunday, move to Monday
+                if (day === 0) { // Sunday -> Monday
                     return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-                } else if (day === 6) { // Saturday, move to Friday
+                } else if (day === 6) { // Saturday -> Friday
                     return new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1);
                 }
                 return date;
             }
 
-            // Calculate US stock market holidays for any year
             calculateHolidays(year) {
                 const holidays = [];
+                const addHoliday = (date, name) => holidays.push({ date, name });
 
-                // New Year's Day (January 1)
-                holidays.push(this.adjustHolidayForWeekend(new Date(year, 0, 1)));
-
-                // Martin Luther King Jr. Day (3rd Monday in January)
-                holidays.push(this.getNthWeekdayOfMonth(year, 0, 1, 3));
-
-                // Presidents Day (3rd Monday in February)
-                holidays.push(this.getNthWeekdayOfMonth(year, 1, 1, 3));
-
-                // Good Friday (Friday before Easter)
+                addHoliday(this.adjustHolidayForWeekend(new Date(year, 0, 1)), "New Year's Day");
+                addHoliday(this.getNthWeekdayOfMonth(year, 0, 1, 3), "Martin Luther King, Jr. Day");
+                addHoliday(this.getNthWeekdayOfMonth(year, 1, 1, 3), "Washington's Birthday");
                 const easter = this.calculateEaster(year);
-                const goodFriday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() - 2);
-                holidays.push(goodFriday);
-
-                // Memorial Day (last Monday in May)
-                holidays.push(this.getLastWeekdayOfMonth(year, 4, 1));
-
-                // Juneteenth (June 19) - became federal holiday in 2021
+                addHoliday(new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() - 2), "Good Friday");
+                addHoliday(this.getLastWeekdayOfMonth(year, 4, 1), "Memorial Day");
                 if (year >= 2021) {
-                    holidays.push(this.adjustHolidayForWeekend(new Date(year, 5, 19)));
+                    addHoliday(this.adjustHolidayForWeekend(new Date(year, 5, 19)), "Juneteenth National Independence Day");
                 }
-
-                // Independence Day (July 4)
-                holidays.push(this.adjustHolidayForWeekend(new Date(year, 6, 4)));
-
-                // Labor Day (1st Monday in September)
-                holidays.push(this.getNthWeekdayOfMonth(year, 8, 1, 1));
-
-                // Thanksgiving (4th Thursday in November)
-                holidays.push(this.getNthWeekdayOfMonth(year, 10, 4, 4));
-
-                // Christmas Day (December 25)
-                holidays.push(this.adjustHolidayForWeekend(new Date(year, 11, 25)));
+                addHoliday(this.adjustHolidayForWeekend(new Date(year, 6, 4)), "Independence Day");
+                addHoliday(this.getNthWeekdayOfMonth(year, 8, 1, 1), "Labor Day");
+                addHoliday(this.getNthWeekdayOfMonth(year, 10, 4, 4), "Thanksgiving Day");
+                addHoliday(this.adjustHolidayForWeekend(new Date(year, 11, 25)), "Christmas Day");
 
                 return holidays;
             }
@@ -523,12 +491,12 @@
                 const selector = document.getElementById('yearSelector');
                 const currentYear = this.currentDate.getFullYear();
                 
-                // Add years from 5 years ago to 5 years in the future
+                selector.innerHTML = ''; // Clear previous options
                 for (let year = currentYear - 5; year <= currentYear + 5; year++) {
                     const option = document.createElement('option');
                     option.value = year;
                     option.textContent = year + '年';
-                    if (year === currentYear) {
+                    if (year === this.displayYear) { // Use displayYear for selection
                         option.selected = true;
                     }
                     selector.appendChild(option);
@@ -544,53 +512,40 @@
                 this.holidays = this.calculateHolidays(this.displayYear);
                 document.getElementById('calendarYear').textContent = this.displayYear + '年';
                 this.renderCalendar();
-                this.loadFundsData(); // Reload data for the new year
+                this.loadFundsData();
             }
 
             updateCurrentDate() {
-                const options = { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    weekday: 'long'
-                };
-                document.getElementById('currentDate').textContent = 
-                    this.currentDate.toLocaleDateString('zh-CN', options);
+                const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+                document.getElementById('currentDate').textContent = this.currentDate.toLocaleDateString('zh-CN', options);
             }
 
             setSelectedDateToToday() {
                 const today = new Date();
-                // Only set to today if we're viewing the current year
                 if (this.displayYear === today.getFullYear()) {
                     document.getElementById('selectedDate').value = today.toISOString().split('T')[0];
                 } else {
-                    // Set to January 1st of the displayed year
                     const firstDay = new Date(this.displayYear, 0, 1);
                     document.getElementById('selectedDate').value = firstDay.toISOString().split('T')[0];
                 }
             }
 
+            getHoliday(date) {
+                return this.holidays.find(holiday => this.isSameDate(holiday.date, date));
+            }
+
             isTradingDay(date) {
-                // Check if it's weekend
                 if (date.getDay() === 0 || date.getDay() === 6) {
                     return false;
                 }
-                
-                // Check if it's a holiday
-                return !this.holidays.some(holiday => 
-                    holiday.getTime() === date.getTime()
-                );
+                return !this.getHoliday(date);
             }
 
             renderCalendar() {
                 const grid = document.getElementById('calendarGrid');
                 grid.innerHTML = '';
 
-                const months = [
-                    '一月', '二月', '三月', '四月', '五月', '六月',
-                    '七月', '八月', '九月', '十月', '十一月', '十二月'
-                ];
-
+                const months = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
                 const dayHeaders = ['日', '一', '二', '三', '四', '五', '六'];
 
                 for (let month = 0; month < 12; month++) {
@@ -605,7 +560,6 @@
                     const daysGrid = document.createElement('div');
                     daysGrid.className = 'days-grid';
 
-                    // Add day headers
                     dayHeaders.forEach(day => {
                         const header = document.createElement('div');
                         header.className = 'day-header';
@@ -613,15 +567,13 @@
                         daysGrid.appendChild(header);
                     });
 
-                    const firstDay = new Date(this.displayYear, month, 1);
-                    const lastDay = new Date(this.displayYear, month + 1, 0);
-                    const startDate = new Date(firstDay);
-                    startDate.setDate(startDate.getDate() - firstDay.getDay());
+                    const firstDayOfMonth = new Date(this.displayYear, month, 1);
+                    const startDate = new Date(firstDayOfMonth);
+                    startDate.setDate(startDate.getDate() - firstDayOfMonth.getDay());
 
                     for (let i = 0; i < 42; i++) {
                         const currentDate = new Date(startDate);
                         currentDate.setDate(startDate.getDate() + i);
-
                         const dayDiv = document.createElement('div');
                         dayDiv.className = 'day';
                         dayDiv.textContent = currentDate.getDate();
@@ -629,25 +581,21 @@
                         if (currentDate.getMonth() !== month) {
                             dayDiv.classList.add('other-month');
                         } else {
-                            const isTrading = this.isTradingDay(currentDate);
-                            dayDiv.classList.add(isTrading ? 'trading-day' : 'non-trading-day');
+                            const holiday = this.getHoliday(currentDate);
+                            if (this.isTradingDay(currentDate)) {
+                                dayDiv.classList.add('trading-day');
+                                dayDiv.addEventListener('click', () => this.selectDate(currentDate));
+                            } else {
+                                dayDiv.classList.add('non-trading-day');
+                                dayDiv.title = holiday ? holiday.name : '周末';
+                            }
 
-                            // Highlight today only if we're viewing the current year
-                            if (this.isSameDate(currentDate, this.currentDate) && 
-                                this.displayYear === this.currentDate.getFullYear()) {
+                            if (this.isSameDate(currentDate, this.currentDate) && this.displayYear === this.currentDate.getFullYear()) {
                                 dayDiv.classList.add('today');
                             }
-
-                            if (isTrading) {
-                                dayDiv.addEventListener('click', () => {
-                                    this.selectDate(currentDate);
-                                });
-                            }
                         }
-
                         daysGrid.appendChild(dayDiv);
                     }
-
                     monthDiv.appendChild(daysGrid);
                     grid.appendChild(monthDiv);
                 }
@@ -667,14 +615,12 @@
 
             initForm() {
                 const form = document.getElementById('fundsForm');
-                const noChangeBtn = document.getElementById('noChangeBtn');
-
                 form.addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.saveFundsRecord();
                 });
 
-                noChangeBtn.addEventListener('click', () => {
+                document.getElementById('noChangeBtn').addEventListener('click', () => {
                     this.saveNoChangeRecord();
                 });
 
@@ -712,9 +658,7 @@
                 try {
                     const response = await fetch(`${API_BASE}/api/funds`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(record)
                     });
 
@@ -747,9 +691,7 @@
                 try {
                     const response = await fetch(`${API_BASE}/api/funds/no-change`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ date: dateStr })
                     });
 
@@ -787,44 +729,33 @@
                 const dateStr = date.toISOString().split('T')[0];
                 const record = this.fundsData.find(r => r.date === dateStr);
                 
-                if (record) {
-                    document.getElementById('cashAmount').value = record.cash || '';
-                    document.getElementById('marketAmount').value = record.marketFunds || '';
-                    this.updateTotalDisplay(record.totalFunds);
-                } else {
-                    document.getElementById('cashAmount').value = '';
-                    document.getElementById('marketAmount').value = '';
-                    this.updateTotalDisplay(0);
-                }
+                document.getElementById('cashAmount').value = record?.cash || '';
+                document.getElementById('marketAmount').value = record?.marketFunds || '';
+                this.updateTotalDisplay(record?.totalFunds || 0);
             }
 
             updateTotalDisplay(total) {
-                const formatter = new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD'
-                });
+                const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
                 document.getElementById('totalAmount').textContent = formatter.format(total || 0);
             }
 
             updateCalendarMarkers() {
-                const days = document.querySelectorAll('.day');
-                days.forEach(day => {
-                    day.classList.remove('has-record');
-                });
+                document.querySelectorAll('.day.has-record').forEach(day => day.classList.remove('has-record'));
 
                 this.fundsData.forEach(record => {
                     const recordDate = new Date(record.date + 'T12:00:00');
-                    // Only show markers for the currently displayed year
                     if (recordDate.getFullYear() !== this.displayYear) return;
                     
-                    days.forEach(day => {
+                    document.querySelectorAll('.day:not(.other-month)').forEach(day => {
                         const dayNumber = parseInt(day.textContent);
                         const parent = day.closest('.month-calendar');
                         const monthIndex = Array.from(parent.parentNode.children).indexOf(parent);
-                        const dayDate = new Date(this.displayYear, monthIndex, dayNumber);
                         
-                        if (this.isSameDate(dayDate, recordDate) && !day.classList.contains('other-month')) {
-                            day.classList.add('has-record');
+                        if (monthIndex > -1) {
+                            const dayDate = new Date(this.displayYear, monthIndex, dayNumber);
+                            if (this.isSameDate(dayDate, recordDate)) {
+                                day.classList.add('has-record');
+                            }
                         }
                     });
                 });
@@ -836,31 +767,35 @@
                     type: 'line',
                     data: {
                         labels: [],
-                        datasets: [{
-                            label: '总资金',
-                            data: [],
-                            borderColor: '#3498db',
-                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.4
-                        }, {
-                            label: '现金',
-                            data: [],
-                            borderColor: '#27ae60',
-                            backgroundColor: 'rgba(39, 174, 96, 0.1)',
-                            borderWidth: 2,
-                            fill: false,
-                            tension: 0.4
-                        }, {
-                            label: '市场投资',
-                            data: [],
-                            borderColor: '#e74c3c',
-                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                            borderWidth: 2,
-                            fill: false,
-                            tension: 0.4
-                        }]
+                        datasets: [
+                            {
+                                label: '总资金',
+                                data: [],
+                                borderColor: '#3498db',
+                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: '现金',
+                                data: [],
+                                borderColor: '#27ae60',
+                                backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.4
+                            },
+                            {
+                                label: '市场投资',
+                                data: [],
+                                borderColor: '#e74c3c',
+                                backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.4
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
@@ -868,120 +803,17 @@
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            }
-                        }
-                    }
-                });
-            }
-
-            updateChart() {
-                if (!this.chart || this.fundsData.length === 0) return;
-
-                const sortedData = this.fundsData.sort((a, b) => new Date(a.date) - new Date(b.date));
-                const labels = sortedData.map(record => {
-                    const date = new Date(record.date);
-                    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-                });
-
-                this.chart.data.labels = labels;
-                this.chart.data.datasets[0].data = sortedData.map(r => r.totalFunds);
-                this.chart.data.datasets[1].data = sortedData.map(r => r.cash);
-                this.chart.data.datasets[2].data = sortedData.map(r => r.marketFunds);
-                
-                this.chart.update();
-            }
-
-            showMessage(message, type) {
-                const messageDiv = document.getElementById('statusMessage');
-                messageDiv.textContent = message;
-                messageDiv.className = `status-message ${type}`;
-                
-                setTimeout(() => {
-                    messageDiv.textContent = '';
-                    messageDiv.className = '';
-                }, 3000);
-            }
-        }
-
-        // Initialize the application when the page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new USStockCalendar();
-        });
-    </script>
-</body>
-</html> + value.toLocaleString();
-                                    }
-                                }
+                                ticks: { callback: value => '$' + value.toLocaleString() }
                             },
-                            x: {
-                                ticks: {
-                                    maxRotation: 45
-                                }
-                            }
+                            x: { ticks: { maxRotation: 45 } }
                         },
                         plugins: {
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) {
-                                        return context.dataset.label + ': 
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            }
-                        }
-                    }
-                });
-            }
-
-            updateChart() {
-                if (!this.chart || this.fundsData.length === 0) return;
-
-                const sortedData = this.fundsData.sort((a, b) => new Date(a.date) - new Date(b.date));
-                const labels = sortedData.map(record => {
-                    const date = new Date(record.date);
-                    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-                });
-
-                this.chart.data.labels = labels;
-                this.chart.data.datasets[0].data = sortedData.map(r => r.totalFunds);
-                this.chart.data.datasets[1].data = sortedData.map(r => r.cash);
-                this.chart.data.datasets[2].data = sortedData.map(r => r.marketFunds);
-                
-                this.chart.update();
-            }
-
-            showMessage(message, type) {
-                const messageDiv = document.getElementById('statusMessage');
-                messageDiv.textContent = message;
-                messageDiv.className = `status-message ${type}`;
-                
-                setTimeout(() => {
-                    messageDiv.textContent = '';
-                    messageDiv.className = '';
-                }, 3000);
-            }
-        }
-
-        // Initialize the application when the page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new USStockCalendar();
-        });
-    </script>
-</body>
-</html> + context.parsed.y.toLocaleString();
-                                    }
+                                    label: context => `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`
                                 }
                             },
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            }
+                            legend: { display: true, position: 'top' }
                         }
                     }
                 });
@@ -990,11 +822,8 @@
             updateChart() {
                 if (!this.chart || this.fundsData.length === 0) return;
 
-                const sortedData = this.fundsData.sort((a, b) => new Date(a.date) - new Date(b.date));
-                const labels = sortedData.map(record => {
-                    const date = new Date(record.date);
-                    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-                });
+                const sortedData = [...this.fundsData].sort((a, b) => new Date(a.date) - new Date(b.date));
+                const labels = sortedData.map(record => new Date(record.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
 
                 this.chart.data.labels = labels;
                 this.chart.data.datasets[0].data = sortedData.map(r => r.totalFunds);
@@ -1011,7 +840,7 @@
                 
                 setTimeout(() => {
                     messageDiv.textContent = '';
-                    messageDiv.className = '';
+                    messageDiv.className = 'status-message';
                 }, 3000);
             }
         }
