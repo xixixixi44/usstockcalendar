@@ -423,6 +423,7 @@
                 this.fundsData = [];
                 this.chart = null;
                 this.holidays = [];
+                this.password = null;
                 this.init();
             }
 
@@ -503,12 +504,12 @@
                 const selector = document.getElementById('yearSelector');
                 const currentYear = this.currentDate.getFullYear();
                 
-                selector.innerHTML = ''; // Clear previous options
+                selector.innerHTML = '';
                 for (let year = currentYear - 5; year <= currentYear + 5; year++) {
                     const option = document.createElement('option');
                     option.value = year;
                     option.textContent = year + '年';
-                    if (year === this.displayYear) { // Use displayYear for selection
+                    if (year === this.displayYear) {
                         option.selected = true;
                     }
                     selector.appendChild(option);
@@ -625,6 +626,17 @@
                 this.loadRecordForDate(date);
             }
 
+            getPassword() {
+                if (this.password) {
+                    return this.password;
+                }
+                const pw = prompt("请输入密码以继续操作：");
+                if (pw) {
+                    this.password = pw;
+                }
+                return pw;
+            }
+
             initForm() {
                 const form = document.getElementById('fundsForm');
                 form.addEventListener('submit', (e) => {
@@ -653,19 +665,26 @@
                     return;
                 }
 
+                const password = this.getPassword();
+                if (!password) {
+                    this.showMessage('操作已取消', 'error');
+                    return;
+                }
+
                 if (confirm(`您确定要删除 ${dateStr} 的记录吗？`)) {
                     try {
                         const response = await fetch(`${API_BASE}/api/funds`, {
                             method: 'DELETE',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ date: dateStr })
+                            body: JSON.stringify({ date: dateStr, password: password })
                         });
 
                         const result = await response.json();
 
                         if (response.ok && result.success) {
                             this.showMessage('记录已删除', 'success');
-                            this.loadFundsData(); // Refresh data
+                            this.password = null; // Clear password on success
+                            this.loadFundsData();
                             document.getElementById('cashAmount').value = '';
                             document.getElementById('marketAmount').value = '';
                         } else {
@@ -674,11 +693,18 @@
                     } catch (error) {
                         console.error('删除记录时出错:', error);
                         this.showMessage(`删除失败: ${error.message}`, 'error');
+                        this.password = null; // Clear password on failure
                     }
                 }
             }
 
             async saveFundsRecord() {
+                const password = this.getPassword();
+                if (!password) {
+                    this.showMessage('操作已取消', 'error');
+                    return;
+                }
+
                 const dateStr = document.getElementById('selectedDate').value;
                 const cash = parseFloat(document.getElementById('cashAmount').value);
                 const market = parseFloat(document.getElementById('marketAmount').value);
@@ -707,7 +733,8 @@
                     marketFunds: market,
                     totalFunds: cash + market,
                     timestamp: new Date().toISOString(),
-                    isChanged: true
+                    isChanged: true,
+                    password: password
                 };
 
                 try {
@@ -719,18 +746,27 @@
 
                     if (response.ok) {
                         this.showMessage('资金记录保存成功！', 'success');
+                        this.password = null; // Clear password on success
                         this.loadFundsData();
                         this.updateTotalDisplay(record.totalFunds);
                     } else {
-                        throw new Error('保存失败');
+                        const errorResult = await response.json().catch(() => ({error: '保存失败'}));
+                        throw new Error(errorResult.error);
                     }
                 } catch (error) {
                     console.error('保存记录时出错:', error);
-                    this.showMessage('保存失败，请稍后重试', 'error');
+                    this.showMessage(`保存失败: ${error.message}`, 'error');
+                    this.password = null; // Clear password on failure
                 }
             }
 
             async saveNoChangeRecord() {
+                const password = this.getPassword();
+                if (!password) {
+                    this.showMessage('操作已取消', 'error');
+                    return;
+                }
+
                 const dateStr = document.getElementById('selectedDate').value;
                 if (!dateStr) {
                     this.showMessage('请选择日期', 'error');
@@ -754,18 +790,21 @@
                     const response = await fetch(`${API_BASE}/api/funds/no-change`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ date: dateStr })
+                        body: JSON.stringify({ date: dateStr, password: password })
                     });
 
                     if (response.ok) {
                         this.showMessage('已记录：今天没有变化', 'success');
+                        this.password = null; // Clear password on success
                         this.loadFundsData();
                     } else {
-                        throw new Error('保存失败');
+                        const errorResult = await response.json().catch(() => ({error: '保存失败'}));
+                        throw new Error(errorResult.error);
                     }
                 } catch (error) {
                     console.error('保存无变化记录时出错:', error);
-                    this.showMessage('保存失败，请稍后重试', 'error');
+                    this.showMessage(`保存失败: ${error.message}`, 'error');
+                    this.password = null; // Clear password on failure
                 }
             }
 
@@ -799,7 +838,12 @@
             }
 
             updateTotalDisplay(total) {
-                const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+                const formatter = new Intl.NumberFormat('en-US', { 
+                    style: 'currency', 
+                    currency: 'USD',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
                 document.getElementById('totalAmount').textContent = formatter.format(total || 0);
             }
 
@@ -828,36 +872,33 @@
             initChart() {
                 const ctx = document.getElementById('fundsChart').getContext('2d');
                 this.chart = new Chart(ctx, {
-                    type: 'line',
+                    type: 'bar',
                     data: {
                         labels: [],
                         datasets: [
                             {
                                 label: '总资金',
                                 data: [],
-                                borderColor: '#3498db',
-                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                type: 'line',
+                                borderColor: '#f39c12',
+                                backgroundColor: 'rgba(243, 156, 18, 0.2)',
                                 borderWidth: 3,
-                                fill: true,
-                                tension: 0.4
+                                tension: 0.4,
+                                order: 0
                             },
                             {
                                 label: '现金',
                                 data: [],
-                                borderColor: '#27ae60',
-                                backgroundColor: 'rgba(39, 174, 96, 0.1)',
-                                borderWidth: 2,
-                                fill: false,
-                                tension: 0.4
+                                backgroundColor: 'rgba(165, 214, 167, 0.7)',
+                                stack: 'funds',
+                                order: 1
                             },
                             {
                                 label: '市场投资',
                                 data: [],
-                                borderColor: '#e74c3c',
-                                backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                                borderWidth: 2,
-                                fill: false,
-                                tension: 0.4
+                                backgroundColor: 'rgba(118, 75, 162, 0.7)',
+                                stack: 'funds',
+                                order: 1
                             }
                         ]
                     },
@@ -865,11 +906,14 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
+                            x: {
+                                stacked: true,
+                            },
                             y: {
+                                stacked: true,
                                 beginAtZero: true,
                                 ticks: { callback: value => '$' + value.toLocaleString() }
-                            },
-                            x: { ticks: { maxRotation: 45 } }
+                            }
                         },
                         plugins: {
                             tooltip: {
